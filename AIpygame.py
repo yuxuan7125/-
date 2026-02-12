@@ -186,15 +186,21 @@ def game_screen(player_count, safe_count):
             screen.blit(id_text, (p.pos[0] - id_text.get_width()//2, p.pos[1] - 25))
             screen.blit(money_text, (p.pos[0] - money_text.get_width()//2, p.pos[1] + 5))
 
-        # 箭頭
-        if not game_over:
-            curr = players[current_index]
-            if curr.alive:
-                pygame.draw.polygon(screen, (255,255,0), [
-                    (curr.pos[0], curr.pos[1]-60),
-                    (curr.pos[0]-10, curr.pos[1]-40),
-                    (curr.pos[0]+10, curr.pos[1]-40)
-                ])
+        # 畫玩家頭像
+        for i, p in enumerate(players):
+            # 判斷是否輪到該玩家
+            if not game_over and i == current_index and p.alive:
+                draw_color = (255,255,0)  # 輪到玩家 → 黃色
+            else:
+                draw_color = p.color      # 原本顏色：白/紅/綠
+
+            pygame.draw.circle(screen, draw_color, p.pos, 40, 0)  # 填滿顏色
+            pygame.draw.circle(screen, (255,255,255), p.pos, 40, 2)  # 邊框
+
+            id_text = FONT.render(f"P{p.idx+1}", True, (0,0,0))
+            money_text = FONT.render(str(p.money), True, (0,0,0))
+            screen.blit(id_text, (p.pos[0]-id_text.get_width()//2, p.pos[1]-25))
+            screen.blit(money_text, (p.pos[0]-money_text.get_width()//2, p.pos[1]+5))
 
         # 畫卡牌
         for card in pool_cards:
@@ -284,14 +290,20 @@ def game_screen(player_count, safe_count):
                             forced_draws = 0
 
                         if card.type=="WIN":
-                            curr.color = (0,255,0)
+                            if curr.money > 0:
+                                curr.color = (0,255,0)
+                                game_over = True
+                                show_next_button = True
+                            else:
+                                # 金額=0時視為SAFE，什麼都不做，玩家繼續抽牌
+                                pass
                         elif card.type=="DEAD":
                             curr.color = (255,0,0)
                             curr.alive = False
                             direction *= -1
 
                         alive_players = [p for p in players if p.alive]
-                        if len(alive_players)==1 or card.type=="WIN":
+                        if len(alive_players)==1 or (card.type=="WIN" and curr.money > 0):
                             for c in pool_cards:
                                 c.revealed = True
                             if len(alive_players)==1:
