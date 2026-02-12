@@ -8,14 +8,14 @@ pygame.init()
 # -------------------------
 # Screen Setup
 # -------------------------
-WIDTH, HEIGHT = 1400, 900
+WIDTH, HEIGHT = 1540, 900
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Pool Cards Game - Fused Version")
 FONT = pygame.font.SysFont("arial", 24)
 clock = pygame.time.Clock()
 
 MAX_CARDS = 30
-CARD_WIDTH = 80
+CARD_WIDTH = 150
 CARD_HEIGHT = 50
 SPACING = 15
 MAX_COLS = 6
@@ -58,8 +58,7 @@ def input_screen():
                 if event.key == pygame.K_LEFT:
                     total_cards = max(player_count, total_cards-1)
                 if event.key == pygame.K_RETURN:
-                    safe_count = total_cards - player_count
-                    return player_count, safe_count
+                    return player_count, total_cards
 
 # -------------------------
 # Player Class
@@ -86,32 +85,59 @@ class PoolCard:
 # -------------------------
 # Game Screen
 # -------------------------
-def game_screen(player_count, safe_count):
+def game_screen(player_count, total_cards):
     global pool_cards, players, total_money, forced_draws, current_bet, round_number
 
     def setup_game():
-        global pool_cards, total_money, card_area_top, card_area_bottom, forced_draws, current_bet
+        global pool_cards, total_money, card_area_top, card_area_bottom, forced_draws, current_bet, round_number
 
         CENTER = (WIDTH//2, HEIGHT//2)
-        RADIUS = 350  # 玩家圓圈半徑增加
+        RADIUS = 380
 
-        # 玩家初始化位置與狀態
+        # -----------------------------
+        # 初始化玩家位置與狀態
+        # -----------------------------
         for i, p in enumerate(players):
-            angle = 2*math.pi*i/player_count - math.pi/2
-            x = CENTER[0] + RADIUS*math.cos(angle)
+            angle = 2*math.pi*i/len(players) - math.pi/2
+            x = CENTER[0] + RADIUS*math.cos(angle)*1.5
             y = CENTER[1] + RADIUS*math.sin(angle)
             p.pos = (int(x), int(y))
             p.alive = True
             p.color = (255,255,255)
             p.money = 0
 
-        # 卡牌列表
-        pool_list = ["WIN"] + ["DEAD"]*(player_count-1) + ["SAFE"]*safe_count
-        if len(pool_list) > MAX_CARDS:
-            pool_list = pool_list[:MAX_CARDS]
-        random.shuffle(pool_list)
+        # -----------------------------
+        # 生成卡牌列表
+        # -----------------------------
+        safe_count = total_cards - len(players)
+        pool_list = ["DEAD"]*(len(players)-1) + ["SAFE"]*safe_count
 
-        # 排版卡牌
+        pool_list.insert(0, None)  # 先占位給 WIN
+
+        # 計算回合數十位+個位數
+        round_digit_sum = round_number % 10 + round_number // 10
+
+        # 設定合法 WIN 編號（奇數或偶數）
+        if round_digit_sum % 2 == 0:
+            valid_numbers = [n for n in range(2, total_cards+1, 2)]  # 偶數
+        else:
+            valid_numbers = [n for n in range(1, total_cards+1, 2)]  # 奇數
+
+        # 隨機選一個合法編號放 WIN
+        win_number = random.choice(valid_numbers)
+        win_index = win_number - 1  # 列表索引 = 編號-1
+        pool_list[0], pool_list[win_index] = pool_list[win_index], "WIN"  # 交換
+
+        # 隨機排列其他牌（不改 WIN 位置）
+        other_indices = [i for i in range(len(pool_list)) if i != win_index]
+        other_cards = [pool_list[i] for i in other_indices]
+        random.shuffle(other_cards)
+        for idx, i in enumerate(other_indices):
+            pool_list[i] = other_cards[idx]
+
+        # -----------------------------
+        # 計算卡牌在畫面上的位置
+        # -----------------------------
         rows = (len(pool_list) + MAX_COLS - 1) // MAX_COLS
         start_x = WIDTH//2 - ((min(len(pool_list), MAX_COLS)*(CARD_WIDTH+SPACING)-SPACING)//2)
         start_y = HEIGHT//2 - ((rows*(CARD_HEIGHT+SPACING)-SPACING)//2)
@@ -119,6 +145,9 @@ def game_screen(player_count, safe_count):
         card_area_top = start_y
         card_area_bottom = start_y + rows*(CARD_HEIGHT+SPACING)
 
+        # -----------------------------
+        # 生成 PoolCard 物件
+        # -----------------------------
         pool_cards.clear()
         for idx, type in enumerate(pool_list):
             row = idx // MAX_COLS
@@ -127,6 +156,9 @@ def game_screen(player_count, safe_count):
             y = start_y + row*(CARD_HEIGHT+SPACING)
             pool_cards.append(PoolCard(type, pygame.Rect(x,y,CARD_WIDTH,CARD_HEIGHT), idx+1))
 
+        # -----------------------------
+        # 初始化金錢與抽牌次數
+        # -----------------------------
         total_money = 0
         forced_draws = 0
         current_bet = 0
@@ -247,12 +279,12 @@ def game_screen(player_count, safe_count):
 
                 # Next 按鈕
                 if show_next_button and next_button_rect.collidepoint(pos):
+                    round_number += 1
                     setup_game()
                     current_index = random.randint(0, player_count-1)
                     direction = 1
                     game_over = False
                     show_next_button = False
-                    round_number += 1
                     continue
 
                 if game_over:
@@ -323,8 +355,8 @@ def game_screen(player_count, safe_count):
 # Main
 # -------------------------
 def main():
-    player_count, safe_count = input_screen()
-    game_screen(player_count, safe_count)
+    player_count, total_cards = input_screen()
+    game_screen(player_count, total_cards)
 
 if __name__=="__main__":
     main()
